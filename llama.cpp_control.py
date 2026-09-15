@@ -10,7 +10,8 @@ from openai import OpenAI
 
 
 SERVER = "http://10.0.2.2:8080/v1"
-MODEL = "Qwen3.8-27B"#"Qwen3VL-8B"
+MODEL = "Qwen3.8-27B"
+MAX_RECENT_ACTIONS = 100
 
 
 client = OpenAI(
@@ -192,13 +193,7 @@ def normalized_to_screen(x, y):
 
 
 def run_task(task):
-    messages = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT,
-        }
-    ]
-
+    recent_actions = []
     step = 1
 
     while True:
@@ -221,6 +216,18 @@ def run_task(task):
 
         print("Sending screenshot to model...")
 
+        recent_actions_text = "\n".join(
+            f"{index}. {action}"
+            for index, action in enumerate(recent_actions, start=1)
+        ) or "None yet."
+
+        messages = [
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT,
+            }
+        ]
+
         messages.append(
             {
                 "role": "user",
@@ -229,6 +236,7 @@ def run_task(task):
                         "type": "text",
                         "text": (
                             f"Task: {task}\n\n"
+                            f"Recent actions:\n{recent_actions_text}\n\n"
                             "Examine the current screenshot. "
                             "Verify the result of the previous action, if any. "
                             "Briefly describe the relevant state and your next "
@@ -384,6 +392,9 @@ def run_task(task):
                 "content": result,
             }
         )
+
+        recent_actions.append(result)
+        recent_actions = recent_actions[-MAX_RECENT_ACTIONS:]
 
         time.sleep(1)
 
